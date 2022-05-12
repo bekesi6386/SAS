@@ -1,4 +1,28 @@
-%macro list_operator(operator, list_part1, list_part2) / des= 'Create the UNION EXCEPT INTERSECT operator with list'
+/**
+    Author: Dávid Békési
+    Version: 9.4M5
+    Brief: Create the UNION EXCEPT INTERSECT operator with lists.
+    Parameter: operator: List operator parameter.
+               list_part1: The first list.
+               list_part2: The second list.
+    Created at: 2021.04.21.
+    Modified at: 2021.09.20. 
+
+    Inner macro call: %distinctlist()
+
+    Use cases:
+        options mprint mlogic;
+
+        1: %put %list_operator(UNION, a b c v f, e f g h a b);
+
+        2: %put %list_operator(EXCEPT, a b c v f, c v f);
+
+        3: %put %list_operator(EXCEPT, a, a);
+
+        4: %put %list_operator(INTERSECT, a b c d e, e f g c d);
+**/
+
+%macro list_operator(operator, list_part1, list_part2) / des= 'Create the UNION EXCEPT INTERSECT operator with lists'
                                                          minoperator
                                                          mindelimiter= ' ';
 
@@ -84,13 +108,3 @@
 
     %eom:
 %mend list_operator;
-
-/*
-%put %list_operator(UNION, a b c v f, e f g h a b);
-
-%put %list_operator(EXCEPT, a b c v f, c v f);
-
-%put %list_operator(EXCEPT, a, a);
-
-%put %list_operator(INTERSECT, a b c d e, e f g c d);
-*/

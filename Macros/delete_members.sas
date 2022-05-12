@@ -1,51 +1,117 @@
-%macro delete_members(member_list, type= DATA) / des= 'Delete MEMBERS from a given library'
-                                                 minoperator
-                                                 mindelimiter= ' ';
-    %if %sysevalf(%superq(member_list)=, boolean) %then %do;
-        %goto eom;
+/**
+    Author: Dávid Békési
+    Version: 9.4M5
+    Brief: Delete the parameter members.
+    Parameter: member_names: Tables or views separated by ' '.
+               type: Must be in the list: DATA, VIEW
+    Inner macro call: %put_params_to_log
+                      %parameter_check
+
+    Created at: 2022.01.17.
+    Modified at: 
+
+    Use cases:
+        options mprint mlogic;
+
+        1: data x y z;
+               set sashelp.class;
+           run;
+
+           libname temp '\\srv3\users$\bekesid\proba_dir';
+
+           data temp.x2;
+               set work.x;
+           run;
+
+           %delete_members(work.x y work.z temp.x2 temp.x3)
+
+           data temp.x3;
+               set work.x;
+           run;
+
+           %delete_members(temp.x3, type= VIEW)
+
+           %delete_members(temp.x3, type= DATAA)
+
+           %delete_members(temp.x3, type= DATA)
+
+           libname temp clear;
+
+           data work.x / view= work.x;
+               set sashelp.class;
+           run;
+
+           %delete_members(work.x, type= VIEW)
+**/
+
+%macro delete_members(member_names, type= DATA) / minoperator     
+                                                  mindelimiter= ' ';
+    /* print params and values to log */
+    %put_params_to_log(delete_members)
+
+    %local param_err i member_full_name dir_name member_name dir_list;
+
+    /* member_names check */
+    %parameter_check(member_names, PARAM_NULL, param_err)
+    %if (&param_err.) %then %do;
+        %put The %upcase(&sysmacroname.) is exiting...;
+        %put;
+        %goto eom_params_err;
     %end;
 
-    %if NOT (%bquote(&type.) IN (ACCESS ALL VIEW CATALOG DATA FDB MDDB PROGRAM VIEW)) %then %do;
-        %put The MEMTYPE argument is not valid!;
-        %put The %upcase(&sysmacroname.) is exiting!;
-        %goto eom;
+    /* type check */
+    %let type = %upcase(&type.);
+
+    %if NOT (%bquote(&type.) IN (DATA VIEW)) %then %do;
+        %put The type parameter must be in the list: DATA, VIEW! (&=type)!;
+        %put The %upcase(&sysmacroname.) is exiting...;
+        %put;
+        %goto eom_params_err;
     %end;
-    
-    %local distinct_member_list fullname i lib libs j;
 
-    %let distinct_member_list = %distinctlist(%lowcase(&member_list.));
+    %do i=1 %to %sysfunc(countw(&member_names., %str( )));
+        %let member_full_name = %scan(&member_names., &i., %str( ));
 
-    %do i=1 %to %sysfunc(countw(&distinct_member_list., %str( )));
-
-        %let fullname = %scan(&distinct_member_list., &i., %str( ));
-
-        %if (%sysfunc(exist(&fullname., &type.)) or %index(&fullname., %str(:)) gt 0) %then %do;
-            /* ures, ha nincs lib */
-            %let lib = %scan(&fullname., -2, %str(.));
-            %if (%bquote(&lib.) eq) %then %do;
-                %let lib = WORK;
-            %end;
-
-            %let libs = %list_operator(UNION, &libs., &lib.);
-
-            %local lib_&lib.;
-
-            %let lib_&lib. = &&lib_&lib.. %scan(&fullname., -1, %str(.));
+        /* exist? */
+        %if NOT (%sysfunc(exist(&member_full_name., &type.))) %then %do;
+            %put;
+            %put The &=member_full_name (&=type) does not exist!;
+            %put;
+            %goto next_i;
         %end;
+
+        %if (%sysfunc(index(&member_full_name., %str(.))) gt 0) %then %do;
+            %let dir_name    = %scan(&member_full_name., -2, %str(.));
+            %let member_name = %scan(&member_full_name., -1, %str(.));
+        %end;
+        %else %do;
+            %let dir_name    = WORK;
+            %let member_name = &member_full_name.;
+        %end;
+
+        /* new dir? */
+        %if (%sysfunc(findw(&dir_list., &dir_name., %str(~ ), I)) eq 0) %then %do;
+            %let dir_list = &dir_list. &dir_name.;
+        %end;
+
+        %local dir_&dir_name.;
+
+        %let dir_&dir_name. = &&dir_&dir_name.. &member_name.;
+
+        %next_i:
     %end;
 
-    %do j=1 %to %sysfunc(countw(&libs., %str( )));
-        %let lib = %scan(&libs., &j., %str( ));
-        
-        proc datasets lib= &lib. memtype= &type. nolist nodetails nowarn;
-            delete &&lib_&lib..
+    %do i=1 %to %sysfunc(countw(&dir_list., %str( )));
+        %let dir_name = %scan(&dir_list., &i., %str( ));
+
+        proc datasets lib= &dir_name. 
+                      mtype= &type. 
+                      nolist;
+            delete &&dir_&dir_name..;
             run;
         quit;
     %end;
 
-    %eom:
-%mend delete_members;
+    %eom_params_err:
 
-/*
-%delete_members(work.x: y z x.x:)
-*/
+%mend delete_members;
