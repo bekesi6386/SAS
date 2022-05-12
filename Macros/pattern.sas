@@ -14,6 +14,10 @@
 
     %do i=1 %to %sysfunc(countw(&what.));
         %let element = %qscan(&what., &i., %str( ));
+	
+	%if &i. gt 1 %then %do;
+            %quote(&delimiter.)
+        %end;
 
         %sysfunc(tranwrd(%nrquote(&how.), %quote(#), %quote(&element.)))
     %end;

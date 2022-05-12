@@ -1,45 +1,47 @@
-%macro distinctlist(list, result);
-    %if %sysevalf(%superq(list)=, boolean) %then %do;
-        %put;
-        %put The LIST parameter is missing!;
-        %put The &=sysmacroname is exiting.;
-        %goto exit;
+%macro distinctlist(list, result, delimiter) / des= 'Create a distinct list from a list';
+    %if (%sysevalf(%superq(list)=, boolean)) %then %do;
+        %goto eom;
     %end;
 
-    %local distinct_list i;
+    %if (%bquote(&delimiter.) eq) %then %do;
+        %let delimiter = %nrstr( );
+    %end;
 
-    %let distinct_list = %scan(&list., 1, %str( ));
+    %local i list_item distinct_list;
 
-    %let i = 2;
+    %let distinct_list = %scan(&list., 1, %str(&delimiter.));
 
-    %do %while(%scan(&list., &i., %str( )) ne %str());
-        %if %sysfunc(indexw(&distinct_list., %scan(&list., &i., %str( )))) eq 0 %then %do;
-            %let distinct_list = &distinct_list. %scan(&list., &i., %str( ));
+    %do i=2 %to %sysfunc(countw(&list., %str(&delimiter.)));
+        %let list_item = %scan(&list., &i., %str(&delimiter.));
+
+        %if (%sysfunc(indexw(&distinct_list., &list_item., %str(&delimiter.))) eq 0) %then %do;
+            %let distinct_list = &distinct_list.%str(&delimiter.)&list_item.;
         %end;
-
-        %let i = %eval(&i.+1);
     %end;
 
-    %if %bquote(&result.) ne %then %let &result. = &distinct_list.;
+    %if %bquote(&result.) ne %then %do;
+        %let &result. = &distinct_list.;
+    %end;
     %else %do;
         &distinct_list.
     %end;
 
-    %exit:
+    %eom:
 %mend distinctlist;
 
 /*
 %macro test;
     %local test;
 
-    %distinctlist();
+    %distinctlist()
     
     %distinctlist(a b c d a b, test);
 
     %put &=test;
 
     %put %distinctlist(a b c d a b);
+
+    %put %distinctlist(a#b#c#a#e#f#c, , #);
 %mend test;
 %test
-
 */
